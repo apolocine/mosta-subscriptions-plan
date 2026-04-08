@@ -1,0 +1,46 @@
+{
+  "name": "@mostajs/subscriptions-plan",
+  "version": "0.1.0",
+  "description": "Subscription plans, billing, invoices and usage tracking for @mostajs",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "tsx test-scripts/test-unit.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "author": "Dr Hamid MADANI <drmdh@msn.com>",
+  "license": "MIT",
+  "dependencies": {
+    "stripe": "^17.0.0"
+  },
+  "peerDependencies": {
+    "@mostajs/orm": "^1.8.0",
+    "next": ">=14.0.0",
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "better-sqlite3": "^12.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}
