@@ -1,6 +1,6 @@
 {
   "name": "@mostajs/subscriptions-plan",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Subscription plans, billing, invoices and usage tracking for @mostajs",
   "type": "module",
   "main": "dist/index.js",
@@ -29,15 +29,30 @@
   ],
   "author": "Dr Hamid MADANI <drmdh@msn.com>",
   "license": "MIT",
-  "dependencies": {
-    "stripe": "^17.0.0"
-  },
   "peerDependencies": {
     "@mostajs/orm": "^1.8.0",
+    "@mostajs/payment": ">=0.2.0",
     "next": ">=14.0.0",
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "stripe": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mostajs/payment": {
+      "optional": true
+    },
+    "stripe": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@mostajs/orm": "file:../mosta-orm",
+    "@mostajs/payment": "file:../mosta-payment",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^12.0.0",
     "tsx": "^4.0.0",
