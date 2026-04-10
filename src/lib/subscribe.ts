@@ -140,3 +140,38 @@ async function ensureProvider(name: string): Promise<void> {
       throw new Error(`Unknown payment provider: ${name}`)
   }
 }
+
+/**
+ * Cancel current subscription and downgrade to Free plan.
+ *
+ * @param dialect - ORM dialect
+ * @param accountId - Account to cancel
+ * @returns { ok, subscription } with the new Free subscription
+ */
+export async function cancelCurrentSubscription(
+  dialect: import('@mostajs/orm').IDialect,
+  accountId: string,
+): Promise<SubscribeResult> {
+  const subRepo = getSubscriptionRepo(dialect)
+  const planRepo = getPlanRepo(dialect)
+
+  // Cancel all active subscriptions
+  const active = await subRepo.findAll({ account: accountId, status: 'active' })
+  for (const sub of active) {
+    await subRepo.update((sub as any).id, { status: 'canceled' } as any)
+  }
+
+  // Auto-subscribe to Free plan
+  const freePlans = await planRepo.findAll({ slug: 'free' })
+  if (freePlans.length === 0) {
+    return { ok: true } // No free plan defined
+  }
+
+  const subscription = await subRepo.create({
+    account: accountId,
+    plan: (freePlans[0] as any).id,
+    status: 'active',
+  } as any)
+
+  return { ok: true, subscription }
+}
