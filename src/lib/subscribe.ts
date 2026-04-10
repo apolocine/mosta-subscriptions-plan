@@ -13,6 +13,8 @@ export interface SubscribeParams {
   /** URLs for payment redirect */
   successUrl?: string
   cancelUrl?: string
+  /** Webhook URL for payment provider callback */
+  webhookUrl?: string
   /** Customer info (for provider checkout) */
   customerEmail?: string
   customerName?: string
@@ -61,6 +63,7 @@ export async function subscribeToPlan(
     await ensureProvider(params.provider)
 
     const provider = getProvider(params.provider)
+
     const result = await provider.createCheckout({
       orderId: `sub_${params.accountId}_${params.planId}`,
       amount: plan.price / 100, // cents → units
@@ -68,6 +71,7 @@ export async function subscribeToPlan(
       description: `Abonnement ${plan.name}`,
       successUrl: params.successUrl ?? '/dashboard/billing?success=1',
       cancelUrl: params.cancelUrl ?? '/dashboard/billing?canceled=1',
+      webhookUrl: params.webhookUrl,
       customerId: params.stripeCustomerId,
       priceId: plan.stripePriceId,
       metadata: { accountId: params.accountId, planId: params.planId },
@@ -76,8 +80,7 @@ export async function subscribeToPlan(
     return { ok: true, url: result.url }
   } catch (e: any) {
     console.warn(`[subscribe] Provider ${params.provider} failed:`, e.message)
-    // Fallback to direct subscription
-    return directSubscribe(subRepo, params.accountId, params.planId)
+    return { ok: false, error: e.message }
   }
 }
 
