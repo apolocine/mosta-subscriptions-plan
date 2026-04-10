@@ -1,11 +1,15 @@
 // @mostajs/subscriptions-plan — Stripe Billing integration
 // Author: Dr Hamid MADANI drmdh@msn.com
+// v0.2.0: delegates to @mostajs/payment for core Stripe operations
 
 import type Stripe from 'stripe'
 import type { BillingConfig } from '../types/index.js'
 
+// ─── Delegate to @mostajs/payment ───────────────────────────
+
 /**
  * Create a Stripe Checkout session for subscription billing.
+ * Delegates to @mostajs/payment.createBillingSession
  */
 export async function createBillingSession(
   stripe: Stripe,
@@ -19,37 +23,45 @@ export async function createBillingSession(
     metadata?: Record<string, string>
   },
 ): Promise<{ url: string | null; sessionId: string }> {
-  const session = await stripe.checkout.sessions.create({
-    customer: params.customerId,
-    mode: 'subscription',
-    line_items: [{ price: params.priceId, quantity: 1 }],
-    success_url: params.successUrl ?? config.successUrl,
-    cancel_url: params.cancelUrl ?? config.cancelUrl,
-    subscription_data: {
-      trial_period_days: params.trialDays,
-      metadata: params.metadata,
-    },
+  const { createBillingSession: pmBilling } = await import('@mostajs/payment/server')
+  return pmBilling(stripe, {
+    customerId: params.customerId,
+    priceId: params.priceId,
+    successUrl: params.successUrl ?? config.successUrl,
+    cancelUrl: params.cancelUrl ?? config.cancelUrl,
+    trialDays: params.trialDays,
     metadata: params.metadata,
   })
-
-  return { url: session.url, sessionId: session.id }
 }
 
 /**
- * Create a Stripe Customer Portal session (manage card, invoices, cancel).
+ * Create a Stripe Customer Portal session.
+ * Delegates to @mostajs/payment.createPortalSession
  */
 export async function createPortalSession(
   stripe: Stripe,
   config: BillingConfig,
   customerId: string,
 ): Promise<{ url: string }> {
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: config.portalReturnUrl,
-  })
-
-  return { url: session.url }
+  const { createPortalSession: pmPortal } = await import('@mostajs/payment/server')
+  return pmPortal(stripe, customerId, config.portalReturnUrl)
 }
+
+/**
+ * Verify a Stripe webhook event.
+ * Delegates to @mostajs/payment.handleWebhook
+ */
+export async function verifyWebhookEvent(
+  stripe: Stripe,
+  body: string | Buffer,
+  signature: string,
+  secret: string,
+): Promise<Stripe.Event> {
+  const { handleWebhook } = await import('@mostajs/payment/server')
+  return handleWebhook(stripe, body, signature, secret) as Promise<Stripe.Event>
+}
+
+// ─── Subscriptions-plan specific ────────────────────────────
 
 /**
  * Create a Stripe customer for a new account.
@@ -67,7 +79,7 @@ export async function createStripeCustomer(
 }
 
 /**
- * Cancel a Stripe subscription (at period end by default).
+ * Cancel a Stripe subscription.
  */
 export async function cancelSubscription(
   stripe: Stripe,
@@ -77,9 +89,7 @@ export async function cancelSubscription(
   if (immediate) {
     await stripe.subscriptions.cancel(stripeSubId)
   } else {
-    await stripe.subscriptions.update(stripeSubId, {
-      cancel_at_period_end: true,
-    })
+    await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true })
   }
 }
 
@@ -93,29 +103,13 @@ export async function changeSubscriptionPlan(
 ): Promise<void> {
   const sub = await stripe.subscriptions.retrieve(stripeSubId)
   await stripe.subscriptions.update(stripeSubId, {
-    items: [{
-      id: sub.items.data[0].id,
-      price: newPriceId,
-    }],
+    items: [{ id: sub.items.data[0].id, price: newPriceId }],
     proration_behavior: 'always_invoice',
   })
 }
 
 /**
- * Verify and parse a Stripe webhook event.
- */
-export function verifyWebhookEvent(
-  stripe: Stripe,
-  body: string | Buffer,
-  signature: string,
-  secret: string,
-): Stripe.Event {
-  return stripe.webhooks.constructEvent(body, signature, secret)
-}
-
-/**
- * Handle billing webhook events.
- * Returns the action taken for logging/auditing.
+ * Parse billing webhook events into structured actions.
  */
 export function parseBillingEvent(event: Stripe.Event): {
   type: 'subscription_created' | 'subscription_updated' | 'subscription_deleted' |
@@ -124,26 +118,16 @@ export function parseBillingEvent(event: Stripe.Event): {
 } {
   switch (event.type) {
     case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session
-      return {
-        type: 'checkout_completed',
-        data: {
-          customerId: session.customer,
-          subscriptionId: session.subscription,
-          metadata: session.metadata,
-        },
-      }
+      const s = event.data.object as Stripe.Checkout.Session
+      return { type: 'checkout_completed', data: { customerId: s.customer, subscriptionId: s.subscription, metadata: s.metadata } }
     }
-
     case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription
       return {
         type: event.type === 'customer.subscription.created' ? 'subscription_created' : 'subscription_updated',
         data: {
-          stripeSubId: sub.id,
-          customerId: sub.customer,
-          status: sub.status,
+          stripeSubId: sub.id, customerId: sub.customer, status: sub.status,
           priceId: sub.items.data[0]?.price?.id,
           currentPeriodStart: new Date((sub as any).current_period_start * 1000).toISOString(),
           currentPeriodEnd: new Date((sub as any).current_period_end * 1000).toISOString(),
@@ -151,49 +135,24 @@ export function parseBillingEvent(event: Stripe.Event): {
         },
       }
     }
-
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription
-      return {
-        type: 'subscription_deleted',
-        data: {
-          stripeSubId: sub.id,
-          customerId: sub.customer,
-        },
-      }
+      return { type: 'subscription_deleted', data: { stripeSubId: sub.id, customerId: sub.customer } }
     }
-
     case 'invoice.paid': {
-      const invoice = event.data.object as Stripe.Invoice
+      const inv = event.data.object as Stripe.Invoice
       return {
         type: 'invoice_paid',
         data: {
-          stripeInvoiceId: invoice.id,
-          customerId: invoice.customer,
-          subscriptionId: invoice.subscription,
-          amount: invoice.amount_paid,
-          currency: invoice.currency,
-          pdfUrl: invoice.invoice_pdf,
-          hostedUrl: invoice.hosted_invoice_url,
-          periodStart: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
-          periodEnd: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+          stripeInvoiceId: inv.id, customerId: inv.customer, subscriptionId: inv.subscription,
+          amount: inv.amount_paid, currency: inv.currency, pdfUrl: inv.invoice_pdf,
         },
       }
     }
-
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice
-      return {
-        type: 'invoice_failed',
-        data: {
-          stripeInvoiceId: invoice.id,
-          customerId: invoice.customer,
-          subscriptionId: invoice.subscription,
-          amount: invoice.amount_due,
-        },
-      }
+      const inv = event.data.object as Stripe.Invoice
+      return { type: 'invoice_failed', data: { stripeInvoiceId: inv.id, customerId: inv.customer, amount: inv.amount_due } }
     }
-
     default:
       return { type: 'unknown', data: { eventType: event.type } }
   }
