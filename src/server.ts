@@ -31,6 +31,10 @@ export {
   parseBillingEvent,
 } from './lib/stripe-billing.js'
 
+// Subscribe (multi-provider via @mostajs/payment)
+export { subscribeToPlan } from './lib/subscribe.js'
+export type { SubscribeParams, SubscribeResult } from './lib/subscribe.js'
+
 // API handlers
 export { createPlanHandlers } from './api/plans.route.js'
 export { createSubscriptionHandlers } from './api/subscriptions.route.js'
