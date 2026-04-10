@@ -32,7 +32,7 @@ export {
 } from './lib/stripe-billing.js'
 
 // Subscribe (multi-provider via @mostajs/payment)
-export { subscribeToPlan } from './lib/subscribe.js'
+export { subscribeToPlan, cancelCurrentSubscription } from './lib/subscribe.js'
 export type { SubscribeParams, SubscribeResult } from './lib/subscribe.js'
 
 // API handlers
