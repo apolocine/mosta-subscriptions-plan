@@ -1,6 +1,6 @@
 {
   "name": "@mostajs/subscriptions-plan",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Subscription plans, billing, invoices and usage tracking for @mostajs",
   "type": "module",
   "main": "dist/index.js",
