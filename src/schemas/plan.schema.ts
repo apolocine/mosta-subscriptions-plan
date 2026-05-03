@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — Plan Schema
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { EntitySchema } from '@mostajs/orm'
+import type { EntitySchema } from '@mostajs/data-plug'
 
 export const PlanSchema: EntitySchema = {
   name: 'Plan',

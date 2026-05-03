@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — Plans API route handlers
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { IDialect } from '@mostajs/orm'
+import type { IDialect } from '@mostajs/data-plug'
 import { getPlanRepo } from '../lib/plan-factory.js'
 import type { PlanDTO } from '../types/index.js'
 

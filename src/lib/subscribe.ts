@@ -2,7 +2,7 @@
 // Author: Dr Hamid MADANI drmdh@msn.com
 // Delegates payment to @mostajs/payment providers
 
-import type { IDialect } from '@mostajs/orm'
+import type { IDialect } from '@mostajs/data-plug'
 import { getPlanRepo, getSubscriptionRepo } from './plan-factory.js'
 
 export interface SubscribeParams {
@@ -149,7 +149,7 @@ async function ensureProvider(name: string): Promise<void> {
  * @returns { ok, subscription } with the new Free subscription
  */
 export async function cancelCurrentSubscription(
-  dialect: import('@mostajs/orm').IDialect,
+  dialect: import('@mostajs/data-plug').IDialect,
   accountId: string,
 ): Promise<SubscribeResult> {
   const subRepo = getSubscriptionRepo(dialect)

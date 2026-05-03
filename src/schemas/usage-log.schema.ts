@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — UsageLog Schema
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { EntitySchema } from '@mostajs/orm'
+import type { EntitySchema } from '@mostajs/data-plug'
 
 export const UsageLogSchema: EntitySchema = {
   name: 'UsageLog',

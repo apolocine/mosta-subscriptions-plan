@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — Module info
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { EntitySchema } from '@mostajs/orm'
+import type { EntitySchema } from '@mostajs/data-plug'
 import { PlanSchema } from '../schemas/plan.schema.js'
 import { SubscriptionSchema } from '../schemas/subscription.schema.js'
 import { InvoiceSchema } from '../schemas/invoice.schema.js'

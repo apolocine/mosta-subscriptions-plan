@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — Usage API route handlers
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { IDialect } from '@mostajs/orm'
+import type { IDialect } from '@mostajs/data-plug'
 import { getUsageLogRepo } from '../lib/plan-factory.js'
 import { getUsageSummary, incrementUsage } from '../lib/quota-check.js'
 

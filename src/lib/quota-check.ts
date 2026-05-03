@@ -1,7 +1,7 @@
 // @mostajs/subscriptions-plan — Quota enforcement
 // Author: Dr Hamid MADANI drmdh@msn.com
 
-import type { IDialect } from '@mostajs/orm'
+import type { IDialect } from '@mostajs/data-plug'
 import type { PlanLimits, QuotaCheckResult, UsageLogDTO } from '../types/index.js'
 import { getUsageLogRepo, getPlanRepo, getSubscriptionRepo } from './plan-factory.js'
 
