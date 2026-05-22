@@ -1,0 +1,92 @@
+# @mostajs/subscriptions-plan — fiche LLM
+> Plans d'abonnement, facturation, factures et suivi de consommation (quotas) pour @mostajs.
+
+- Version: 0.3.6 · Licence: AGPL-3.0-or-later · Auteur: Dr Hamid MADANI <drmdh@msn.com>
+- Chemin: mostajs/mosta-subscriptions-plan · Statut audit: complet (dist/)
+
+## RÔLE
+Gère le cycle de vie d'abonnement SaaS : catalogue de plans (Free/Medium/Premium), souscription (gratuite directe ou payante déléguée à `@mostajs/payment`), facturation Stripe, factures, suivi de consommation journalière (UsageLog) et contrôle de quota par ressource. Fournit les 4 schémas ORM (`Plan`, `Subscription`, `Invoice`, `UsageLog`) et des handlers de routes Next.js App Router.
+
+## INSTALLATION
+npm i @mostajs/subscriptions-plan
+
+## EXPORTS
+Entrée `.` (types + schémas, sans dépendance serveur lourde) :
+- Schémas: `PlanSchema`, `SubscriptionSchema`, `InvoiceSchema`, `UsageLogSchema`
+- Constante: `moduleInfo`
+- Types: `PlanDTO`, `PlanLimits`, `SubscriptionDTO`, `SubscriptionStatus`, `InvoiceDTO`, `InvoiceStatus`, `UsageLogDTO`, `BillingConfig`, `QuotaCheckResult`
+
+## EXPORTS PAR SOUS-CHEMIN
+Entrée `@mostajs/subscriptions-plan/server` :
+- Repos: `getPlanRepo`, `getSubscriptionRepo`, `getInvoiceRepo`, `getUsageLogRepo`, `resetRepos`
+- Quota/usage: `checkQuota`, `isDialectAllowed`, `isTransportAllowed`, `getUsageSummary`, `incrementUsage`, constante `DEFAULT_PLANS`
+- Souscription: `subscribeToPlan`, `cancelCurrentSubscription` (+ types `SubscribeParams`, `SubscribeResult`)
+- Billing Stripe: `createBillingSession`, `createPortalSession`, `createStripeCustomer`, `cancelSubscription`, `changeSubscriptionPlan`, `verifyWebhookEvent`, `parseBillingEvent`
+- Routes Next.js: `createPlanHandlers`, `createSubscriptionHandlers`, `createUsageHandlers`
+- Module: `getSchemas`, `moduleInfo`, `subscriptionPlanRegistration`
+
+## API — SIGNATURES
+- `checkQuota(dialect, accountId, resource: 'requests'|'projects'|'apiKeys', currentCount?): Promise<QuotaCheckResult>`
+- `isDialectAllowed(limits: PlanLimits, dialect: string): boolean` · `isTransportAllowed(limits, transport): boolean`
+- `getUsageSummary(dialect, accountId, periodStart): Promise<{ totalRequests; totalReads; totalWrites; totalErrors; days }>`
+- `incrementUsage(dialect, accountId, projectId: string|undefined, type: 'read'|'write'|'error'): Promise<void>` — fire-and-forget
+- `subscribeToPlan(dialect, params: SubscribeParams): Promise<SubscribeResult>`
+- `cancelCurrentSubscription(dialect, accountId): Promise<SubscribeResult>` — annule et repasse en Free
+- `createBillingSession(stripe, config: BillingConfig, params): Promise<{ url; sessionId }>`
+- `createPortalSession(stripe, config, customerId): Promise<{ url }>`
+- `createStripeCustomer(stripe, { email; name; metadata? }): Promise<string>`
+- `cancelSubscription(stripe, stripeSubId, immediate?): Promise<void>` · `changeSubscriptionPlan(stripe, stripeSubId, newPriceId): Promise<void>`
+- `verifyWebhookEvent(stripe, body, sig, secret): Promise<Stripe.Event>`
+- `parseBillingEvent(event: Stripe.Event): { type: 'subscription_created'|'subscription_updated'|'subscription_deleted'|'invoice_paid'|'invoice_failed'|'checkout_completed'|'unknown'; data }`
+- `createPlanHandlers(dialect, checkPermission?): { GET; POST; PUT; DELETE }` — GET public, écritures admin
+- `createSubscriptionHandlers(dialect): { GET; POST; PUT }`
+- `createUsageHandlers(dialect): { GET; GETToday; POST }`
+- Repos: `getPlanRepo(dialect): BaseRepository<PlanDTO>` (idem Subscription/Invoice/UsageLog)
+
+## TYPES CLÉS
+- `PlanLimits { maxProjects: number; maxApiKeys: number; requestsPerDay: number; maxPoolSize: number; dialects: string[]|'*'; transports: string[]|'*'; replication: boolean }`
+- `PlanDTO { id; name; slug; price: number; currency; interval: 'month'|'year'; stripePriceId?; limits: PlanLimits; features: string[]; active: boolean; sortOrder: number; createdAt?; updatedAt? }`
+- `SubscriptionStatus = 'active'|'trialing'|'past_due'|'canceled'|'unpaid'`
+- `SubscriptionDTO { id; accountId; planId; status: SubscriptionStatus; stripeSubId?; currentPeriodStart?; currentPeriodEnd?; cancelAt?; trialEnd?; ... }`
+- `InvoiceStatus = 'open'|'paid'|'void'|'uncollectible'`
+- `InvoiceDTO { id; accountId; subscriptionId?; stripeInvoiceId?; amount; currency; status: InvoiceStatus; paidAt?; periodStart?; periodEnd?; pdfUrl?; hostedUrl?; ... }`
+- `UsageLogDTO { id; accountId; projectId?; date: string; requests; reads; writes; errors; bandwidth; ... }`
+- `BillingConfig { stripeSecretKey; stripeWebhookSecret; successUrl; cancelUrl; portalReturnUrl }`
+- `QuotaCheckResult { allowed: boolean; reason?; current: number; limit: number; resource: string }`
+- `SubscribeParams { accountId; planId; provider?: 'direct'|'stripe'|'chargily'|'paypal'|'satim'; successUrl?; cancelUrl?; webhookUrl?; customerEmail?; customerName?; stripeCustomerId? }`
+- `SubscribeResult { ok: boolean; url?: string|null; subscription?: any; error?: string }`
+
+## PATTERN
+```ts
+import { subscribeToPlan, checkQuota } from '@mostajs/subscriptions-plan/server'
+
+// Souscription : Free → direct en DB, payant → redirect provider
+const r = await subscribeToPlan(dialect, {
+  accountId: 'acc-1', planId: 'plan-premium', provider: 'stripe',
+  successUrl: '/billing/ok', cancelUrl: '/billing/ko', customerEmail: 'u@x.com',
+})
+if (r.url) redirect(r.url)   // paiement requis
+
+// Contrôle de quota
+const q = await checkQuota(dialect, 'acc-1', 'projects')
+if (!q.allowed) throw new Error(q.reason)
+```
+
+## DÉPEND DE
+- `@mostajs/data-plug` (peer dep `^1.2.4`) — façade ORM : `BaseRepository`, `IDialect`, `EntitySchema`.
+- `@mostajs/config` (peer dep) — résolution env.
+- `@mostajs/payment` (peer dep optionnelle `>=0.4.2`) — checkout des plans payants ; `subscribeToPlan` lui délègue.
+- `stripe` (peer dep optionnelle), `next`/`react` (peer deps optionnelles).
+
+## PIÈGES
+- `subscribeToPlan` : plan gratuit (`price=0`) → souscription directe en DB ; plan payant → délègue à `@mostajs/payment` et retourne une `url` de redirect ; si aucun provider dispo, fallback en souscription directe.
+- Vérifier `SubscribeResult.url` : non-nul ⇒ il faut rediriger l'utilisateur ; nul ⇒ souscription déjà créée (`subscription`).
+- `incrementUsage` est fire-and-forget — ne pas s'appuyer sur son `await` pour garantir la persistance avant un check de quota.
+- Le sous-chemin `/server` contient la logique sensible (clés Stripe) — ne pas l'importer côté client.
+- `createPlanHandlers` : `GET` est public (page pricing), `POST/PUT/DELETE` exigent le `PermissionChecker` admin — sans checker, les écritures restent ouvertes.
+- `PlanLimits.dialects`/`transports` acceptent `'*'` (tout autorisé) — `isDialectAllowed`/`isTransportAllowed` gèrent ce cas.
+- Repos mis en cache via WeakMap par dialect ; `resetRepos` est un no-op de rétro-compat.
+- Module distinct de `@mostajs/subscriptions` (qui gère plans/accès clients/activités) — ici l'axe est facturation + quotas.
+
+## RÉFÉRENCES
+README.md
