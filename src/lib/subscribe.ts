@@ -119,7 +119,11 @@ async function ensureProvider(name: string): Promise<void> {
       break
     }
     case 'chargily': {
-      if (!process.env.CHARGILY_API_KEY) throw new Error('CHARGILY_API_KEY not configured')
+      // Cohérence Stripe-aligned : CHARGILY_SECRET_KEY (recommandé) avec
+      // fallback CHARGILY_API_KEY (legacy). Cf. createChargilyProvider.
+      const { getEnv } = await import('@mostajs/config')
+      const chargilyKey = getEnv('CHARGILY_SECRET_KEY') ?? getEnv('CHARGILY_API_KEY')
+      if (!chargilyKey) throw new Error('CHARGILY_SECRET_KEY not configured')
       const { createChargilyProvider, registerProvider } = await import('@mostajs/payment/server')
       registerProvider(createChargilyProvider())
       break
