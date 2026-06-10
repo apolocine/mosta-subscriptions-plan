@@ -20,6 +20,30 @@ C'est un module **système** *(au sens : ses 4 tables vivent dans la base systè
 
 ---
 
+## Scope d'abonnement *(v0.4.0)*
+
+Par défaut un abonnement est au niveau **compte** (`scopeType: 'account'`). Depuis 0.4.0, on peut
+le **scoper à une entité** via les champs optionnels `scopeType` / `scopeId` — un même compte
+peut alors avoir **plusieurs abonnements actifs**, un par entité :
+
+```ts
+import { subscribeToPlan, findActiveSubscription } from '@mostajs/subscriptions-plan/server'
+
+// Sponsoriser une COURSE précise (race-event)
+await subscribeToPlan(dialect, {
+  accountId, planId, provider: 'chargily',
+  scope: { type: 'course', id: courseId },   // ← abo rattaché à la course
+})
+
+// Retrouver l'abo actif de cette course
+const sub = await findActiveSubscription(dialect, { scope: { type: 'course', id: courseId } })
+```
+
+Additif et **non-breaking** : sans `scope`, le comportement est identique aux versions 0.3.x
+(abo compte-scopé, annulation account-wide). Voir `CHANGELOG.md`.
+
+---
+
 ## Install
 
 ```bash

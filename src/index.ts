@@ -8,6 +8,7 @@ export type {
   PlanLimits,
   SubscriptionDTO,
   SubscriptionStatus,
+  SubscriptionScope,
   InvoiceDTO,
   InvoiceStatus,
   UsageLogDTO,

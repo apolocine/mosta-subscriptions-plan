@@ -15,6 +15,12 @@ export const SubscriptionSchema: EntitySchema = {
     currentPeriodEnd:   { type: 'date' },
     cancelAt:           { type: 'date' },
     trialEnd:           { type: 'date' },
+    // Scope générique (optionnel, additif/non-breaking) : à quelle ENTITÉ l'abonnement
+    // est rattaché. Par défaut 'account' = comportement historique (abo niveau compte).
+    // 'course' (race-event), 'project', … → permet PLUSIEURS abos actifs par compte,
+    // un par entité scopée. Cf. findActiveSubscription().
+    scopeType:          { type: 'string', default: 'account' },
+    scopeId:            { type: 'string' },
   },
 
   relations: {
@@ -25,5 +31,7 @@ export const SubscriptionSchema: EntitySchema = {
   indexes: [
     { fields: { status: 'asc' } },
     { fields: { stripeSubId: 'asc' }, unique: true },
+    // Recherche d'abo actif par scope (account|course|…)
+    { fields: { scopeType: 'asc', scopeId: 'asc' } },
   ],
 }

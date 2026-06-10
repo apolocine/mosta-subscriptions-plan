@@ -20,6 +20,13 @@ export interface SubscribeParams {
   customerName?: string
   /** Stripe customer ID (if already exists) */
   stripeCustomerId?: string
+  /**
+   * Scope optionnel de l'abonnement. Par défaut { type:'account' } (historique).
+   * { type:'course', id:courseId } → abo rattaché à une course (race-event) : permet
+   * PLUSIEURS abos actifs par compte, un par entité scopée. L'annulation des abos
+   * existants ne touche que le MÊME scope.
+   */
+  scope?: { type: string; id: string }
 }
 
 export interface SubscribeResult {
@@ -52,7 +59,7 @@ export async function subscribeToPlan(
 
   // Free plan or no provider → direct subscription
   if (!plan.price || plan.price === 0 || !params.provider || params.provider === 'direct') {
-    return directSubscribe(subRepo, params.accountId, params.planId)
+    return directSubscribe(subRepo, params.accountId, params.planId, params.scope)
   }
 
   // Paid plan → try payment provider
@@ -74,7 +81,11 @@ export async function subscribeToPlan(
       webhookUrl: params.webhookUrl,
       customerId: params.stripeCustomerId,
       priceId: plan.stripePriceId,
-      metadata: { accountId: params.accountId, planId: params.planId },
+      metadata: {
+        accountId: params.accountId,
+        planId: params.planId,
+        ...(params.scope ? { scopeType: params.scope.type, scopeId: params.scope.id } : {}),
+      },
     })
 
     return { ok: true, url: result.url }
@@ -86,10 +97,21 @@ export async function subscribeToPlan(
 
 /**
  * Direct subscription — no payment required (free plan or fallback).
+ *
+ * Scope-aware : si un scope est fourni (ex. course), seuls les abos actifs du
+ * MÊME scope sont annulés (un compte peut sponsoriser plusieurs courses en //).
+ * Sans scope → comportement historique (annule les abos actifs du compte).
  */
-async function directSubscribe(subRepo: any, accountId: string, planId: string): Promise<SubscribeResult> {
-  // Cancel existing active subscriptions
-  const existing = await subRepo.findAll({ account: accountId, status: 'active' })
+async function directSubscribe(
+  subRepo: any,
+  accountId: string,
+  planId: string,
+  scope?: { type: string; id: string },
+): Promise<SubscribeResult> {
+  // Cancel existing active subscriptions of the SAME scope
+  const filter: any = { account: accountId, status: 'active' }
+  if (scope) { filter.scopeType = scope.type; filter.scopeId = scope.id }
+  const existing = await subRepo.findAll(filter)
   for (const sub of existing) {
     await subRepo.update(sub.id, { status: 'canceled' } as any)
   }
@@ -99,6 +121,7 @@ async function directSubscribe(subRepo: any, accountId: string, planId: string):
     account: accountId,
     plan: planId,
     status: 'active',
+    ...(scope ? { scopeType: scope.type, scopeId: scope.id } : {}),
   } as any)
 
   return { ok: true, subscription }
@@ -178,4 +201,25 @@ export async function cancelCurrentSubscription(
   } as any)
 
   return { ok: true, subscription }
+}
+
+/**
+ * Trouve l'abonnement ACTIF pour un scope donné.
+ *
+ * - `{ accountId }` seul → abo actif du compte (historique).
+ * - `{ scope:{type,id} }` → abo actif rattaché à cette entité (ex. course).
+ *   `accountId` reste optionnel pour restreindre au compte.
+ *
+ * @returns la Subscription active ou `null`.
+ */
+export async function findActiveSubscription(
+  dialect: import('@mostajs/data-plug').IDialect,
+  params: { accountId?: string; scope?: { type: string; id: string } },
+): Promise<any | null> {
+  const subRepo = getSubscriptionRepo(dialect)
+  const filter: any = { status: 'active' }
+  if (params.accountId) filter.account = params.accountId
+  if (params.scope) { filter.scopeType = params.scope.type; filter.scopeId = params.scope.id }
+  const rows = await subRepo.findAll(filter)
+  return rows && rows.length > 0 ? rows[0] : null
 }

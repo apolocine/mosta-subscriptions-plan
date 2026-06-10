@@ -16,11 +16,17 @@ export function createSubscriptionHandlers(dialect: IDialect) {
   async function GET(req: Request): Promise<Response> {
     const url = new URL(req.url)
     const accountId = url.searchParams.get('accountId')
-    if (!accountId) {
-      return Response.json({ error: 'accountId required' }, { status: 400 })
+    const scopeType = url.searchParams.get('scopeType')
+    const scopeId = url.searchParams.get('scopeId')
+    // Au moins un critère : compte OU scope (course, …).
+    if (!accountId && !(scopeType && scopeId)) {
+      return Response.json({ error: 'accountId or (scopeType & scopeId) required' }, { status: 400 })
     }
 
-    const subs = await subRepo.findAll({ account: accountId, status: 'active' })
+    const filter: Record<string, unknown> = { status: 'active' }
+    if (accountId) filter.account = accountId
+    if (scopeType && scopeId) { filter.scopeType = scopeType; filter.scopeId = scopeId }
+    const subs = await subRepo.findAll(filter)
     if (subs.length === 0) {
       return Response.json(null)
     }
@@ -49,8 +55,10 @@ export function createSubscriptionHandlers(dialect: IDialect) {
       return Response.json({ error: 'Plan not found' }, { status: 404 })
     }
 
-    // Cancel existing active subscriptions
-    const existing = await subRepo.findAll({ account: data.accountId, status: 'active' })
+    // Cancel existing active subscriptions of the SAME scope (account-wide si pas de scope).
+    const cancelFilter: Record<string, unknown> = { account: data.accountId, status: 'active' }
+    if (data.scopeType && data.scopeId) { cancelFilter.scopeType = data.scopeType; cancelFilter.scopeId = data.scopeId }
+    const existing = await subRepo.findAll(cancelFilter)
     for (const old of existing) {
       await subRepo.update(old.id, { status: 'canceled' } as Partial<SubscriptionDTO>)
     }
@@ -64,6 +72,8 @@ export function createSubscriptionHandlers(dialect: IDialect) {
       currentPeriodStart: data.currentPeriodStart ?? new Date().toISOString(),
       currentPeriodEnd: data.currentPeriodEnd,
       trialEnd: data.trialEnd,
+      ...(data.scopeType ? { scopeType: data.scopeType } : {}),
+      ...(data.scopeId ? { scopeId: data.scopeId } : {}),
     } as unknown as Partial<SubscriptionDTO>)
 
     return Response.json(sub, { status: 201 })

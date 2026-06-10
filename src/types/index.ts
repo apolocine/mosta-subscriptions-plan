@@ -21,7 +21,7 @@ export interface PlanDTO {
   slug: string
   price: number              // centimes (2900 = $29.00)
   currency: string
-  interval: 'month' | 'year'
+  interval: 'month' | 'year' | 'one_time'   // 'one_time' = ponctuel (pas de renouvellement)
   stripePriceId?: string
   limits: PlanLimits
   features: string[]
@@ -47,8 +47,18 @@ export interface SubscriptionDTO {
   currentPeriodEnd?: string
   cancelAt?: string
   trialEnd?: string
+  /** Scope générique (optionnel) : 'account' (défaut) | 'course' | 'project' | … */
+  scopeType?: string
+  /** Id de l'entité scopée (ex. courseId) quand scopeType ≠ 'account' */
+  scopeId?: string
   createdAt?: string
   updatedAt?: string
+}
+
+/** Scope d'un abonnement — entité à laquelle il est rattaché. */
+export interface SubscriptionScope {
+  type: string   // 'account' | 'course' | 'project' | …
+  id: string
 }
 
 // ══════════════════════════════════════════════════════════

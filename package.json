@@ -1,6 +1,6 @@
 {
   "name": "@mostajs/subscriptions-plan",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "Subscription plans, billing, invoices and usage tracking for @mostajs",
   "type": "module",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "llms.txt"
   ],
   "author": "Dr Hamid MADANI <drmdh@msn.com>",

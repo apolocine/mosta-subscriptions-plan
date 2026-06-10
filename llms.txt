@@ -1,8 +1,9 @@
 # @mostajs/subscriptions-plan — fiche LLM
 > Plans d'abonnement, facturation, factures et suivi de consommation (quotas) pour @mostajs.
 
-- Version: 0.3.6 · Licence: AGPL-3.0-or-later · Auteur: Dr Hamid MADANI <drmdh@msn.com>
+- Version: 0.4.0 · Licence: AGPL-3.0-or-later · Auteur: Dr Hamid MADANI <drmdh@msn.com>
 - Chemin: mostajs/mosta-subscriptions-plan · Statut audit: complet (dist/)
+- v0.4.0: SCOPE générique sur Subscription (`scopeType`/`scopeId`, optionnels, défaut 'account') → un compte peut avoir PLUSIEURS abos actifs, un par entité scopée (ex. 'course' pour race-event). Helper `findActiveSubscription({accountId?,scope?})`. `subscribeToPlan(..., {scope})`. `Plan.interval` accepte 'one_time'. Additif/non-breaking (auto-ALTER ORM).
 
 ## RÔLE
 Gère le cycle de vie d'abonnement SaaS : catalogue de plans (Free/Medium/Premium), souscription (gratuite directe ou payante déléguée à `@mostajs/payment`), facturation Stripe, factures, suivi de consommation journalière (UsageLog) et contrôle de quota par ressource. Fournit les 4 schémas ORM (`Plan`, `Subscription`, `Invoice`, `UsageLog`) et des handlers de routes Next.js App Router.
